@@ -7,4 +7,5 @@
       Keys:
         arrows left/right: images pager
         Enter: save points
-3. Step3Teaching - learning module. Take all images as an array, get the points arrays from answers.json and try to teach the NN.
+        Esc: exit
+3. Step3Teaching - learning module. Take all images as an array, get the points arrays from answers.json and try to teach the NN. Based on https://www.youtube.com/watch?v=kft1AJ9WVDk
