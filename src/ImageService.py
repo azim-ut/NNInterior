@@ -2,7 +2,8 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, isdir, join, exists
+import json
 
 
 class ImageService():
@@ -25,22 +26,69 @@ class ImageService():
                 arr[...,i] -= minval
                 arr[...,i] *= (255.0/(maxval-minval))
         return arr
+    
+    def parseAnswer(self, dataFile):
+        data = None
+        res = []
+        with open(dataFile) as f:
+            data = json.load(f)
+            for ind in data['_via_img_metadata']:
+                row = data['_via_img_metadata'][ind]
+                obj = {
+                        'file': row['filename'],
+                        'points': []
+                    }
+                for region in row['regions']:
+                    x = 0
+                    y = 0
+                    for i, x in enumerate(region['shape_attributes']['all_points_x']):
+                        x = x
+                        y = region['shape_attributes']['all_points_y'][i]
+                        obj['points'].append([x, y])
+                res.append(obj)
+        return res
         
-    def resizeTo(self, sourceFolder, targetFolder, width, height):
+    def answers(self, saveToFile):
+        dirs = [f for f in listdir(self.sourceFolder) if isdir(join(self.sourceFolder, f))]
+        res = {
+            'list':[],
+            'width': self.width,
+            'height': self.height
+        }
+        for dir in dirs:
+            dataFile = join(self.sourceFolder, dir, "data.json")
+            if exists(dataFile):
+                arr = self.parseAnswer(dataFile)
+                res['list'].append(arr)
+        with open(saveToFile, 'w') as json_file:
+            json.dump(res, json_file)
+            
+        return self
+        
+        
+    def resizeTo(self, sourceFolder, targetFolder):
         self.sourceFolder = sourceFolder
         self.targetFolder = targetFolder
-        self.width = width
-        self.height = height
         
-        onlyfiles = [f for f in listdir(self.sourceFolder) if isfile(join(self.sourceFolder, f))]
-        for file in onlyfiles:
-            pathFrom = join(self.sourceFolder, file)
-            pathTo = join(self.targetFolder, file)
-            if Path(pathTo).is_file():
-                continue
-            else:
-                img = Image.open(pathFrom).convert('RGB')
-                new_img = self.normalize(np.array(img))
-                new_img = Image.fromarray(new_img.astype('uint8'))
-                new_img = new_img.resize((self.width, self.height), Image.ANTIALIAS)
-                new_img.save(pathTo)
+        dirs = [f for f in listdir(self.sourceFolder) if isdir(join(self.sourceFolder, f))]
+        for dir in dirs:
+            dataFile = join(self.sourceFolder, dir, "data.json")
+            if exists(dataFile):
+                files = [f for f in listdir(join(self.sourceFolder, dir)) if isfile(join(self.sourceFolder, dir, f))]
+                for file in files:
+                    pathFrom = join(self.sourceFolder, dir, file)
+                    pathTo = join(self.targetFolder, file)
+                    if pathFrom == dataFile:
+                        continue
+                    if Path(pathTo).is_file():
+                        continue
+                    else:
+                        img = Image.open(pathFrom).convert('RGB')
+                        new_img = Image.fromarray(new_img.astype('uint8'))
+                        width, height = img.size
+                        if width>self.width:
+                            self.width = width
+                        if height>self.height:
+                            self.height = height
+                        new_img.save(pathTo)
+        return self
